@@ -1,0 +1,8 @@
+name: DeathSwap
+main: com.jaredflores.deathswap.DeathSwap
+version: 1.0
+api-version: 1.15
+commands:
+  ds:
+    description: Commands for Death Swap games
+    usage: /ds - Pulls up the usage command list.
