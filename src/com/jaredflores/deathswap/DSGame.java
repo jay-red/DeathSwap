@@ -11,30 +11,76 @@ import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
 
-import com.jaredflores.deathswap.DSPlayer;
-import com.jaredflores.deathswap.DeathSwap;
-
 public class DSGame extends BukkitRunnable {
     private int swaps;
     private Random rng;
     private int seconds;
     private int playerCount;
-    private HashSet<UUID> used;
+    private DSNode[] sudokuBuffer;
+    private DSPlayer[][] swapBuffer;
     private ArrayList<UUID> players;
     private ArrayList<UUID> winners;
+    private ArrayList<DSPlayer> dsPlayers;
     private HashMap<UUID, Location> locations;
 
     public DSGame() {
         this.seconds = 0;
         this.playerCount = 0;
         this.players = new ArrayList<UUID>();
+        this.dsPlayers = new ArrayList<DSPlayer>();
         this.winners = new ArrayList<UUID>();
         this.locations = new HashMap<UUID, Location>();
-        this.used = new HashSet<UUID>();
         this.rng = new Random();
         for( HashMap.Entry<UUID, DSPlayer> entry : DeathSwap.playerMap.entrySet() ) {
             this.players.add( entry.getKey() );
+            this.dsPlayers.add( entry.getValue() );
             this.playerCount++;
+        }
+        this.sudokuBuffer = new DSNode[ this.playerCount ];
+        for( int i = 0; i < this.playerCount; ++i ) {
+            this.sudokuBuffer[ i ] = new DSNode();
+        }
+        this.swapBuffer = new DSPlayer[ this.playerCount - 1 ][ this.playerCount ];
+    }
+
+    private void computeSwaps() {
+        for( int i = 0; i < this.playerCount; ++i ) {
+            this.sudokuBuffer[ i ].setChildren( this.dsPlayers.get( i ), this.dsPlayers );
+        }
+        int available;
+        DSNode ptr;
+        DSPlayer player;
+        for( int i = 0; i < this.playerCount - 1; ++i ) {
+            for( int j = 0; j < this.playerCount; ++j ) {
+                this.swapBuffer[ i ][ j ] = null;
+            }
+        }
+        for( int i = 0; i < this.playerCount - 1; ++i ) {
+            ptr = this.sudokuBuffer[ 0 ];
+            for( int j = 0; j < this.playerCount; ++j ) {
+                this.dsPlayers.get( j ).setUsed( false );
+                this.sudokuBuffer[ j ].setCompleted( false );
+                this.sudokuBuffer[ j ].resetEffective();
+                this.sudokuBuffer[ j ].setPlayer( null );
+            }
+            for( int j = 0; j < this.playerCount; ++j ) {
+                player = ptr.getNextChild();
+                player.setUsed( true );
+                ptr.setPlayer( player );
+                ptr.setCompleted( true );
+                ptr = player.getNextParent( ptr );
+                available = 0;
+                if( ptr == null && j < this.playerCount - 1 ) {
+                    ptr = this.sudokuBuffer[ available ];
+                    while( ptr.getCompleted() ) {
+                        ++available;
+                        ptr = this.sudokuBuffer[ available ];
+                    }
+                }
+            }
+            for( int j = 0; j < this.playerCount; ++j ) {
+                this.swapBuffer[ i ][ j ] = this.sudokuBuffer[ j ].getPlayer();
+            }
         }
     }
 
@@ -52,8 +98,8 @@ public class DSGame extends BukkitRunnable {
         UUID nextTrappee;
         switch( this.seconds ) {
             case 60:
-                this.used.clear();
                 int points;
+                int curr = 0;
                 for( UUID key : players ) {
                     p = DeathSwap.playerMap.get( key );
                     points = p.getPoints();
@@ -70,21 +116,13 @@ public class DSGame extends BukkitRunnable {
                         }
                     }
                     p.setNatural( true );
-                    remaining = p.getRemaining();
-                    if( swaps == 0 ) {
-                        remaining.addAll( this.players );
-                        remaining.remove( key );
-                    }
-                    nextTrappeeIdx = this.rng.nextInt( remaining.size() );
-                    nextTrappee = remaining.get( nextTrappeeIdx );
-                    while( this.used.contains( nextTrappee ) ) {
-                        nextTrappeeIdx = this.rng.nextInt( remaining.size() );
-                        nextTrappee = remaining.get( nextTrappeeIdx );
-                    }
-                    //remaining.remove( nextTrappeeIdx );
-                    this.used.add( nextTrappee );
-                    p.setTrappee( nextTrappee );
-                    DeathSwap.playerMap.get( nextTrappee ).setTrapper( key );
+                }
+                if( swaps == 0 ) {
+                    computeSwaps();
+                }
+                for( int i = 0; i < this.playerCount; ++i ) {
+                    this.dsPlayers.get( i ).setTrappee( this.swapBuffer[ swaps ][ i ].getPlayer().getUniqueId() );
+                    this.swapBuffer[ swaps ][ i ].setTrapper( this.dsPlayers.get( i ).getPlayer().getUniqueId() );
                 }
                 String msg;
                 if( this.winners.isEmpty() ) {
@@ -159,7 +197,7 @@ public class DSGame extends BukkitRunnable {
                     p.getPlayer().teleport( this.locations.get( p.getTrapper() ) );
                 }
                 this.swaps += 1;
-                //this.swaps %= ( this.playerCount - 1 );
+                this.swaps %= ( this.playerCount - 1 );
                 this.seconds = 0;
                 break;
             default:

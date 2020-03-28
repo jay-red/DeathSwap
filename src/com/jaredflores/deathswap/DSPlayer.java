@@ -1,7 +1,9 @@
 package com.jaredflores.deathswap;
 
 import java.util.UUID;
+import java.util.Iterator;
 import java.util.ArrayList;
+import java.util.LinkedList;
 
 import org.bukkit.entity.Player;
 
@@ -12,7 +14,9 @@ public class DSPlayer {
     private Player player;
     private boolean death;
     private boolean natural;
-    private ArrayList<UUID> remaining;
+    private LinkedList<DSNode> parents;
+    private DSNode nextParent;
+    private boolean used;
 
     public DSPlayer( Player player ) {
         setPoints( 0 );
@@ -20,7 +24,8 @@ public class DSPlayer {
         setTrappee( player.getUniqueId() );
         setPlayer( player );
         setNatural( true );
-        this.remaining = new ArrayList<UUID>();
+        this.parents = new LinkedList<DSNode>();
+        setUsed( false );
     }
 
     public void setPoints( int points ) {
@@ -47,6 +52,10 @@ public class DSPlayer {
         this.natural = natural;
     }
 
+    public void setUsed( boolean used ) {
+        this.used = used;
+    }
+
     public int getPoints() {
         return this.points;
     }
@@ -71,7 +80,36 @@ public class DSPlayer {
         return this.natural;
     }
 
-    public ArrayList<UUID> getRemaining() {
-        return this.remaining;
+    public boolean getUsed() {
+        return this.used;
+    }
+
+    public DSNode getNextParent( DSNode current ) {
+        this.nextParent = null;
+        DSNode parent;
+        int effective;
+        Iterator itr = this.parents.iterator();
+        while( itr.hasNext() ) {
+            parent = ( DSNode ) ( itr.next() );
+            if( parent == current ) {
+                itr.remove();
+            }
+            if( !parent.getCompleted() ) {
+                if( parent != current ) {
+                    effective = parent.getEffective() - 1;
+                    parent.setEffective( effective );
+                    if( nextParent == null ) {
+                        nextParent = parent;
+                    } else if( effective < nextParent.getEffective() ) {
+                        nextParent = parent;
+                    }
+                }
+            }
+        }
+        return this.nextParent;
+    }
+
+    public void addParent( DSNode parent ) {
+        this.parents.addLast( parent );
     }
 }

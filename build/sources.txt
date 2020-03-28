@@ -1,5 +1,6 @@
 com\jaredflores\deathswap\DeathSwap.class
 com\jaredflores\deathswap\DSGame.class
+com\jaredflores\deathswap\DSNode.class
 com\jaredflores\deathswap\DSPlayer.class
 com\jaredflores\deathswap\Commands\CommandDS.class
 com\jaredflores\deathswap\Listeners\PlayerDeath.class
